@@ -187,6 +187,7 @@ def remote_3(args):
 
     """
     input_list = args["input"]
+    first_user_id = list(input_list)[0]
 
     avg_beta_vector = np.array(args["cache"]["avg_beta_vector"])
 
@@ -214,7 +215,7 @@ def remote_3(args):
             "mean_y_global": mean_y_global.tolist(),
             "dof_global": dof_global.tolist(),
             "all_local_stats_dicts": all_local_stats_dicts,
-            "y_labels": args["input"]["local0"]["y_labels"]
+            "y_labels": args["input"][first_user_id]["y_labels"]
         },
     }
 
