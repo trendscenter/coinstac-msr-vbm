@@ -24,7 +24,7 @@ def local_0(args):
     (X, y) = vbm_parser(args)
 
     y = pd.DataFrame(
-        y.loc[:, 0:4])  # comment this line to demonstrate docker hanging
+        y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
     y_labels = ['{}_{}'.format('voxel', str(i)) for i in y.columns]
 
     computation_output_dict = {
