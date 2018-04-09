@@ -12,6 +12,25 @@ import regression as reg
 
 
 def remote_0(args):
+    input_list = args["input"]
+    site_ids = list(input_list.keys())
+    site_covar_list = [
+        '{}_{}'.format('site', label)
+        for index, label in enumerate(site_ids) if index
+    ]
+
+    computation_output_dict = {
+        "output": {
+            "site_covar_list": site_covar_list,
+            "computation_phase": "remote_0"
+        },
+        "cache": {}
+    }
+
+    return json.dumps(computation_output_dict)
+
+
+def remote_1(args):
     """Need this function for performing multi-shot regression"""
     input_list = args["input"]
     first_user_id = list(input_list.keys())[0]
@@ -51,14 +70,14 @@ def remote_0(args):
         "output": {
             "remote_beta": wp.tolist(),
             "iter_flag": iter_flag,
-            "computation_phase": "remote_0"
+            "computation_phase": "remote_1"
         }
     }
 
     return json.dumps(computation_output)
 
 
-def remote_1(args):
+def remote_2(args):
 
     beta1 = args["cache"]["beta1"]
     beta2 = args["cache"]["beta2"]
@@ -82,7 +101,7 @@ def remote_1(args):
             },
             "output": {
                 "avg_beta_vector": wc.tolist(),
-                "computation_phase": "remote_1b"
+                "computation_phase": "remote_2b"
             }
         }
     else:
@@ -133,14 +152,14 @@ def remote_1(args):
             "output": {
                 "remote_beta": wc.tolist(),
                 "mask_flag": mask_flag.astype(int).tolist(),
-                "computation_phase": "remote_1a"
+                "computation_phase": "remote_2a"
             }
         }
 
     return json.dumps(computation_output)
 
 
-def remote_2(args):
+def remote_3(args):
     """Computes the global beta vector, mean_y_global & dof_global
 
     Args:
@@ -188,7 +207,7 @@ def remote_2(args):
         "output": {
             "avg_beta_vector": avg_beta_vector.tolist(),
             "mean_y_global": mean_y_global.tolist(),
-            "computation_phase": "remote_2"
+            "computation_phase": "remote_3"
         },
         "cache": {
             "avg_beta_vector": avg_beta_vector.tolist(),
@@ -202,7 +221,7 @@ def remote_2(args):
     return json.dumps(computation_output)
 
 
-def remote_3(args):
+def remote_4(args):
     """
     Computes the global model fit statistics, r_2_global, ts_global, ps_global
 
@@ -329,6 +348,9 @@ if __name__ == '__main__':
         sys.stdout.write(computation_output)
     elif "local_3" in phase_key:
         computation_output = remote_3(parsed_args)
+        sys.stdout.write(computation_output)
+    elif "local_4" in phase_key:
+        computation_output = remote_4(parsed_args)
         sys.stdout.write(computation_output)
     else:
         raise ValueError("Error occurred at Remote")
