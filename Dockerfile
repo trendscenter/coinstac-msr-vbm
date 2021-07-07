@@ -1,4 +1,4 @@
-FROM coinstac/coinstac-base
+FROM coinstacteam/coinstac-base
 
 # Set the working directory
 WORKDIR /computation

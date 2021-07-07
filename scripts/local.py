@@ -7,9 +7,11 @@ regression with decentralized statistic calculation
 import json
 import numpy as np
 import sys
+import os
 import regression as reg
 import warnings
-from parsers import vbm_parser
+import coinstacparsers
+from coinstacparsers import parsers
 import pandas as pd
 
 with warnings.catch_warnings():
@@ -20,11 +22,11 @@ with warnings.catch_warnings():
 def local_0(args):
     input_list = args["input"]
     lamb = input_list["lambda"]
+    mask = os.path.join('/computation', 'assets', 'mask_6mm.nii')
+    (X, y) = parsers.vbm_parser(args, mask)
 
-    (X, y) = vbm_parser(args)
-
-    y = pd.DataFrame(
-        y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
+    #y = pd.DataFrame(
+    #    y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
     y_labels = ['{}_{}'.format('voxel', str(i)) for i in y.columns]
 
     computation_output_dict = {
@@ -263,7 +265,7 @@ def local_4(args):
 
 if __name__ == '__main__':
 
-    parsed_args = json.loads(sys.argv[1])
+    parsed_args = json.loads(sys.stdin.read())
     phase_key = list(reg.listRecursive(parsed_args, 'computation_phase'))
 
     if not phase_key:

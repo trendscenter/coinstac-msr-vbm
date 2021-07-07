@@ -8,17 +8,17 @@
   },
   "computation": {
     "type": "docker",
-    "dockerImage": "coinstacteam/msr-vbm",
+    "dockerImage": "msr-vbm",
     "command": [
       "python",
-      "\/computation\/local.py"
+      "\/computation\/scripts\/local.py"
     ],
     "remote": {
       "type": "docker",
-      "dockerImage": "coinstacteam/msr-vbm",
+      "dockerImage": "msr-vbm",
       "command": [
         "python",
-        "\/computation\/remote.py"
+        "\/computation\/scripts\/remote.py"
       ]
     },
     "input": {
