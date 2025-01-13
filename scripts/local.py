@@ -109,7 +109,8 @@ def local_1(args):
         "output": {
             "beta_vec_size": beta_vec_size,
             "number_of_regressions": len(y_labels),
-            "computation_phase": "local_1"
+            "computation_phase": "local_1",
+            "augmented_X_labels": list(biased_X.columns),
         },
         "cache": {
             "beta_vec_size": beta_vec_size,
