@@ -50,6 +50,7 @@ def remote_1(args):
     mt = np.zeros((number_of_regressions, beta_vec_size), dtype=float)
     vt = np.zeros((number_of_regressions, beta_vec_size), dtype=float)
 
+    prev_cost = [None] * number_of_regressions
     iter_flag = 1
 
     computation_output = {
@@ -66,6 +67,7 @@ def remote_1(args):
             "vt": vt.tolist(),
             "iter_flag": iter_flag,
             "number_of_regressions": number_of_regressions,
+            "prev_cost": prev_cost,
         },
         "output": {
             "remote_beta": wp.tolist(),
@@ -91,6 +93,7 @@ def remote_2(args):
     vt = args["cache"]["vt"]
     iter_flag = args["cache"]["iter_flag"]
     number_of_regressions = args["cache"]["number_of_regressions"]
+    prev_cost = args["cache"]["prev_cost"]
 
     count = count + 1
 
@@ -106,6 +109,8 @@ def remote_2(args):
         }
     else:
         input_list = args["input"]
+        sorted_site_ids = sorted(list(input_list.keys()))
+
         if len(input_list) == 1:
             grad_remote = [
                 np.array(args["input"][site]["local_grad"])
@@ -126,7 +131,12 @@ def remote_2(args):
 
         wc = wp - eta * m / (np.sqrt(v) + eps)
 
-        mask_flag = np.linalg.norm(wc - wp, axis=1) <= tol
+        # mask_flag = np.linalg.norm(wc - wp, axis=1) <= tol
+        mask_flag = np.full(number_of_regressions, False)
+        # Compute curr_cost
+        curr_cost = np.average(np.array([args["input"][site]["local_cost"] for site in sorted_site_ids]), axis=0)
+        if None not in prev_cost:
+            mask_flag = abs(np.array(prev_cost) - curr_cost) <= tol
 
         if sum(mask_flag) == number_of_regressions:
             iter_flag = 0
@@ -134,6 +144,7 @@ def remote_2(args):
         for i in range(mask_flag.shape[0]):
             if not mask_flag[i]:
                 wp[i] = wc[i]
+                prev_cost[i] = curr_cost[i]
 
         computation_output = {
             "cache": {
@@ -147,7 +158,9 @@ def remote_2(args):
                 "wc": wc.tolist(),
                 "mt": mt.tolist(),
                 "vt": vt.tolist(),
-                "iter_flag": iter_flag
+                "iter_flag": iter_flag,
+                "prev_cost": prev_cost,
+                "X_labels": args["cache"]["X_labels"],
             },
             "output": {
                 "remote_beta": wc.tolist(),
@@ -200,7 +213,7 @@ def remote_3(args):
         np.array(input_list[site]["count_local"]) for site in input_list
     ]
     mean_y_global = np.array(mean_y_local) * np.array(count_y_local)
-    mean_y_global = np.average(mean_y_global, axis=0)
+    mean_y_global = mean_y_global.sum(axis=0) / np.sum(count_y_local)
 
     dof_global = sum(count_y_local) - avg_beta_vector.shape[1]
 

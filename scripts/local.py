@@ -8,11 +8,12 @@ import json
 import numpy as np
 import sys
 import os
-import regression as reg
 import warnings
 import coinstacparsers
 from coinstacparsers import parsers
 import pandas as pd
+import scripts.local_ancillary as lc
+from scripts.regression import listRecursive, sum_squared_error, y_estimate
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -144,6 +145,7 @@ def local_2(args):
     w = args["input"]["remote_beta"]
 
     gradient = np.zeros((number_of_regressions, beta_vec_size))
+    cost = np.zeros(number_of_regressions)
 
     for i in range(number_of_regressions):
         y_ = y[i]
@@ -151,6 +153,7 @@ def local_2(args):
         if not mask_flag[i]:
             gradient[i, :] = (
                 1 / len(X)) * np.dot(biased_X.T, np.dot(biased_X, w_) - y_)
+        cost[i] = lc.get_cost(y_actual=y[i], y_predicted=np.dot(biased_X, w_))
 
     computation_phase = {
         "cache": {
@@ -164,6 +167,7 @@ def local_2(args):
         },
         "output": {
             "local_grad": gradient.tolist(),
+            "local_cost": cost.tolist(),
             "computation_phase": "local_2"
         }
     }
@@ -242,7 +246,8 @@ def local_4(args):
     for index, column in enumerate(y.columns):
         curr_y = y[column].values
         SSE_local.append(
-            reg.sum_squared_error(biased_X, curr_y, avg_beta_vector))
+            sum_squared_error(curr_y, y_estimate(biased_X, avg_beta_vector)[index])
+        )
         SST_local.append(
             np.sum(
                 np.square(np.subtract(curr_y, mean_y_global[index])),
@@ -266,7 +271,7 @@ def local_4(args):
 if __name__ == '__main__':
 
     parsed_args = json.loads(sys.stdin.read())
-    phase_key = list(reg.listRecursive(parsed_args, 'computation_phase'))
+    phase_key = list(listRecursive(parsed_args, 'computation_phase'))
 
     if not phase_key:
         computation_output = local_0(parsed_args)
