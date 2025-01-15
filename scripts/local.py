@@ -9,11 +9,11 @@ import numpy as np
 import sys
 import os
 import warnings
-import coinstacparsers
 from coinstacparsers import parsers
 import pandas as pd
 import scripts.local_ancillary as lc
 from scripts.regression import listRecursive, sum_squared_error, y_estimate
+from scripts.utils import log
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -26,13 +26,15 @@ def local_0(args):
     mask = os.path.join('/computation', 'assets', 'mask_6mm.nii')
     (X, y) = parsers.vbm_parser(args, mask)
 
+    columns_to_normalize = lc.check_cols_to_normalize(X)
     #y = pd.DataFrame(
     #    y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
     y_labels = ['{}_{}'.format('voxel', str(i)) for i in y.columns]
 
     computation_output_dict = {
         "output": {
-            "computation_phase": "local_0"
+            "computation_phase": "local_0",
+            "columns_to_normalize": columns_to_normalize,
         },
         "cache": {
             "covariates": X.values.tolist(),
@@ -54,6 +56,11 @@ def local_1(args):
     lamb = args["cache"]["lambda"]
     y_labels = args["cache"]["y_labels"]
     y = pd.DataFrame(y, columns=y_labels)
+
+    """TODO: Check for the below line:"""
+    input_list = args['input']
+    X = lc.normalize_columns(X, input_list["columns_to_normalize"])
+    log(f'\n\nNormalizing the following column values to their z-scores: {input_list["columns_to_normalize"]} \n ', args['state'])
 
     biased_X = sm.add_constant(X)
     meanY_vector, lenY_vector = [], []
