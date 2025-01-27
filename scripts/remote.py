@@ -55,14 +55,13 @@ def remote_1(args):
     eta = 1000  # 0.05
     count = 0
 
-    wp = np.zeros((number_of_regressions, beta_vec_size), dtype=float)
-    wc = np.zeros((number_of_regressions, beta_vec_size), dtype=float)
-    mt = np.zeros((number_of_regressions, beta_vec_size), dtype=float)
-    vt = np.zeros((number_of_regressions, beta_vec_size), dtype=float)
+    wp, wc, mt, vt = [
+        np.zeros((number_of_regressions, beta_vec_size), dtype=float)
+        for _ in range(4)
+    ]
 
     #Update initial weights based on the local beta's
-    local_X_labels=['const']
-    local_X_labels.extend(args['cache']['X_labels'])
+    local_X_labels=input_list[first_user_id]["X_labels"]
     augmented_X_labels=input_list[first_user_id]['augmented_X_labels']
     for label_idx, curr_label in enumerate(local_X_labels):
         idx = augmented_X_labels.index(curr_label)

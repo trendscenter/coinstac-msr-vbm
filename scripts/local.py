@@ -11,9 +11,9 @@ import os
 import warnings
 from coinstacparsers import parsers
 import pandas as pd
-import scripts.local_ancillary as lc
-from scripts.regression import listRecursive, sum_squared_error, y_estimate
-from scripts.utils import log
+import local_ancillary as lc
+from regression import listRecursive, sum_squared_error, y_estimate
+from utils import log
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -26,11 +26,28 @@ def local_0(args):
     mask = os.path.join('/computation', 'assets', 'mask_6mm.nii')
     (X, y) = parsers.vbm_parser(args, mask)
 
+    """
+    X: 
+        df(
+            column: [age, isControl, sex_M], 
+            rows:[28, 1,1], 
+            index={M02108714_swc1t1avg_6mm.nii, M02110676_swc1t1avg_6mm.nii, ...}
+        )
+    y:
+        df(
+            column: [voxel_0, voxel_1, voxel_2, voxe_3, ..., voxel_9955], 
+            rows=[[0.101961, 0.082353,..., 0.01230]]
+            index={0, 1, 2, 3, 4, ....}
+        )
+    y_labels: 
+        [voxel_voxel_1, voxel_voxel_2, ...., voxel_voxel_9955]
+    """
     columns_to_normalize = lc.check_cols_to_normalize(X)
     #y = pd.DataFrame(
     #    y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
     y_labels = ['{}_{}'.format('voxel', str(i)) for i in y.columns]
 
+    # raise Exception(X, y, args, y_labels)
     computation_output_dict = {
         "output": {
             "computation_phase": "local_0",
@@ -41,6 +58,7 @@ def local_0(args):
             "dependents": y.values.tolist(),
             "lambda": lamb,
             "y_labels": y_labels,
+            "X_labels": list(X.columns)
         },
     }
 
@@ -54,75 +72,38 @@ def local_1(args):
     X = args["cache"]["covariates"]
     y = args["cache"]["dependents"]
     lamb = args["cache"]["lambda"]
+    
     y_labels = args["cache"]["y_labels"]
+    X_labels = args['cache']['X_labels']
     y = pd.DataFrame(y, columns=y_labels)
 
-    """TODO: Check for the below line:"""
     input_list = args['input']
     X = lc.normalize_columns(X, input_list["columns_to_normalize"])
     log(f'\n\nNormalizing the following column values to their z-scores: {input_list["columns_to_normalize"]} \n ', args['state'])
 
-    biased_X = sm.add_constant(X)
-    meanY_vector, lenY_vector = [], []
+    meanY_vector, lenY_vector, local_stats_list, beta_vector = (
+        lc.gather_local_stats(X, y)
+    )
 
-    local_params = []
-    local_sse = []
-    local_pvalues = []
-    local_tvalues = []
-    local_rsquared = []
+    log(f"\nlocal stats list: {str(local_stats_list)} ", args["state"])
+    augmented_X = lc.add_site_covariates(args, X)
 
-    for column in y.columns:
-        curr_y = list(y[column])
-        meanY_vector.append(np.mean(curr_y))
-        lenY_vector.append(len(y))
-
-        # Printing local stats as well
-        model = sm.OLS(curr_y, biased_X.astype(float)).fit()
-        local_params.append(model.params)
-        local_sse.append(model.ssr)
-        local_pvalues.append(model.pvalues)
-        local_tvalues.append(model.tvalues)
-        local_rsquared.append(model.rsquared_adj)
-
-    keys = ["beta", "sse", "pval", "tval", "rsquared"]
-    local_stats_list = []
-    for index, _ in enumerate(y_labels):
-        values = [
-            local_params[index].tolist(), local_sse[index],
-            local_pvalues[index].tolist(), local_tvalues[index].tolist(),
-            local_rsquared[index]
-        ]
-        local_stats_dict = {key: value for key, value in zip(keys, values)}
-        local_stats_list.append(local_stats_dict)
-
-    # +++++++++++++++++++++ Adding site covariate columns +++++++++++++++++++++
-    site_covar_list = args["input"]["site_covar_list"]
-
-    site_matrix = np.zeros(
-        (np.array(X).shape[0], len(site_covar_list)), dtype=int)
-    site_df = pd.DataFrame(site_matrix, columns=site_covar_list)
-
-    select_cols = [
-        col for col in site_df.columns if args["state"]["clientId"] in col
-    ]
-
-    site_df[select_cols] = 1
-    biased_X = np.concatenate((biased_X, site_df.values), axis=1)
-    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    beta_vec_size = biased_X.shape[1]
+    raise Exception(augmented_X)
+    beta_vec_size = augmented_X.shape[1]
 
     computation_output = {
         "output": {
             "beta_vec_size": beta_vec_size,
+            "beta_vector_local": beta_vector,
             "number_of_regressions": len(y_labels),
             "computation_phase": "local_1",
-            "augmented_X_labels": list(biased_X.columns),
+            "augmented_X_labels": list(augmented_X.columns),
+            "X_labels": X_labels
         },
         "cache": {
             "beta_vec_size": beta_vec_size,
             "number_of_regressions": len(y_labels),
-            "covariates": biased_X.tolist(),
+            "covariates": augmented_X.tolist(),
             "dependents": y.values.tolist(),
             "lambda": lamb,
             "y_labels": y_labels,
@@ -131,7 +112,7 @@ def local_1(args):
             "local_stats_list": local_stats_list
         }
     }
-
+ 
     return json.dumps(computation_output)
 
 
