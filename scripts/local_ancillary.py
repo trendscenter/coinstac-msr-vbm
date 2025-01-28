@@ -1,4 +1,3 @@
-import coinstacparsers
 from coinstacparsers import parsers
 import warnings
 import numpy as np
@@ -62,13 +61,10 @@ def add_site_covariates(args, X):
     ]
     site_df[select_cols] = 1
 
-    # check whether below changes are required...
-    # biased_X.reset_index(drop=True, inplace=True)
-    # site_df.reset_index(drop=True, inplace=True)
+    agumented_X = np.concatenate((biased_X, site_df.values), axis=1)
+    augumented_X_labels = site_df.columns.to_list()
 
-    agumented_X = pd.concat((biased_X, site_df), axis=1)
-
-    return agumented_X
+    return agumented_X, augumented_X_labels
 
 
 

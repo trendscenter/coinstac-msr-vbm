@@ -61,7 +61,8 @@ def remote_1(args):
     ]
 
     #Update initial weights based on the local beta's
-    local_X_labels=input_list[first_user_id]["X_labels"]
+    local_X_labels=['const']
+    local_X_labels.extend(input_list[first_user_id]["X_labels"])
     augmented_X_labels=input_list[first_user_id]['augmented_X_labels']
     for label_idx, curr_label in enumerate(local_X_labels):
         idx = augmented_X_labels.index(curr_label)
@@ -85,6 +86,7 @@ def remote_1(args):
             "iter_flag": iter_flag,
             "number_of_regressions": number_of_regressions,
             "prev_cost": prev_cost,
+            "X_labels": input_list[first_user_id]["X_labels"]
         },
         "output": {
             "remote_beta": wp.tolist(),

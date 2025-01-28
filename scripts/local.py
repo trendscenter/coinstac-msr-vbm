@@ -86,9 +86,9 @@ def local_1(args):
     )
 
     log(f"\nlocal stats list: {str(local_stats_list)} ", args["state"])
-    augmented_X = lc.add_site_covariates(args, X)
+    augmented_X, augmented_X_labels = lc.add_site_covariates(args, X)
+    augmented_X_labels = ["const"] + X_labels + augmented_X_labels
 
-    raise Exception(augmented_X)
     beta_vec_size = augmented_X.shape[1]
 
     computation_output = {
@@ -97,7 +97,7 @@ def local_1(args):
             "beta_vector_local": beta_vector,
             "number_of_regressions": len(y_labels),
             "computation_phase": "local_1",
-            "augmented_X_labels": list(augmented_X.columns),
+            "augmented_X_labels": augmented_X_labels,
             "X_labels": X_labels
         },
         "cache": {
