@@ -112,3 +112,34 @@ def vbm_parser(args):
     X.isControl = X.isControl.astype(int)  # need to generalize this line
 
     return (X, y)
+
+
+def parse_covar_info(args):
+    """Read covariate information from the UI
+    """
+    input_ = args["input"]
+    state_ = args["state"]
+
+    # Converting the contents to a dataframe
+    covar_info = pd.DataFrame.from_dict(input_["covariates"],orient="index")
+    covar_info.index.name = "niftifile"
+
+    # convert bool to categorical as soon as possible
+    for column in covar_info.select_dtypes(bool):
+        covar_info[column] = covar_info[column].astype('object')
+
+    # Checks for existence of files and if they don't delete row
+    for file in covar_info.index:
+        if not os.path.isfile(os.path.join(state_["baseDirectory"], file)):
+            covar_info.drop(file, inplace=True)
+
+    # Raise Exception if none of the files are found
+    if covar_info.index.empty:
+        raise Exception(
+            'Could not find .nii files specified in the covariates csv')
+
+    # convert contents of object columns to lowercase
+    for column in covar_info.select_dtypes(object):
+        covar_info[column] = covar_info[column].str.lower()
+
+    return covar_info

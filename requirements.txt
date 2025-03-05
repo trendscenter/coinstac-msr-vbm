@@ -4,3 +4,7 @@ scipy
 statsmodels
 nibabel
 coinstacparsers
+nilearn
+matplotlib
+numba
+scikit-learn

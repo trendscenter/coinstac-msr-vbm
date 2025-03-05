@@ -37,19 +37,19 @@ def one_shot_regression(X, y, lamb):
     Comments:
         Utilizes sklearn.linear_model.Ridge to return a weight vector for the
         regression  model y = w*biased_X + epsilon
-      """
-#    clf = sklearn.linear_model.Ridge(
-#        alpha=lamb,
-#        fit_intercept=True,
-#        normalize=False,
-#        copy_X=True,
-#        max_iter=None,
-#        tol=0.001,
-#        solver='auto',
-#        random_state=None)
-#
-#    result = clf.fit(X, y)
-#    beta_vector = np.insert(result.coef_, 0, result.intercept_)
+    """
+    #    clf = sklearn.linear_model.Ridge(
+    #        alpha=lamb,
+    #        fit_intercept=True,
+    #        normalize=False,
+    #        copy_X=True,
+    #        max_iter=None,
+    #        tol=0.001,
+    #        solver='auto',
+    #        random_state=None)
+    #
+    #    result = clf.fit(X, y)
+    #    beta_vector = np.insert(result.coef_, 0, result.intercept_)
     model = sm.OLS(y, X.astype(float)).fit_regularized(alpha=lamb, L1_wt=0)
 
     return model.params
@@ -72,7 +72,7 @@ def y_estimate(biased_X, beta_vector):
     return np.dot(beta_vector, np.matrix.transpose(biased_X))
 
 
-def sum_squared_error(biased_X, y, beta_vector):
+def sum_squared_error(y, y_pred):
     """Calculates the sum of squared errors (SSE)
 
     Args:
@@ -87,7 +87,7 @@ def sum_squared_error(biased_X, y, beta_vector):
     Comments:
         SSE = ||(y - y_estimate)^2||^2 where ||.|| --> l2-norm
     """
-    return np.linalg.norm(y - y_estimate(biased_X, beta_vector))**2
+    return np.sum((y_pred - y) ** 2)
 
 
 def sum_squared_total(y):
@@ -102,7 +102,7 @@ def sum_squared_total(y):
     Comments:
         SST = ||y - y_mean||^2 where ||.|| --> l2-norm
     """
-    return np.linalg.norm(y - np.mean(y))**2
+    return np.linalg.norm(y - np.mean(y)) ** 2
 
 
 def r_square(biased_X, y, beta_vector):

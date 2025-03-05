@@ -8,11 +8,13 @@ import json
 import numpy as np
 import sys
 import os
-import regression as reg
 import warnings
-import coinstacparsers
 from coinstacparsers import parsers
 import pandas as pd
+import local_ancillary as lc
+from regression import listRecursive, sum_squared_error, y_estimate
+from utils import log
+from nipype_utils import average_nifti
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -25,19 +27,50 @@ def local_0(args):
     mask = os.path.join('/computation', 'assets', 'mask_6mm.nii')
     (X, y) = parsers.vbm_parser(args, mask)
 
+    """
+    X: 
+        df(
+            column: [age, isControl, sex_M], 
+            rows:[28, 1,1], 
+            index={M02108714_swc1t1avg_6mm.nii, M02110676_swc1t1avg_6mm.nii, ...}
+        )
+    y:
+        df(
+            column: [voxel_0, voxel_1, voxel_2, voxe_3, ..., voxel_9955], 
+            rows=[[0.101961, 0.082353,..., 0.01230]]
+            index={0, 1, 2, 3, 4, ....}
+        )
+    y_labels: 
+        [voxel_voxel_1, voxel_voxel_2, ...., voxel_voxel_9955]
+    """
+    columns_to_normalize = lc.check_cols_to_normalize(X)
     #y = pd.DataFrame(
     #    y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
     y_labels = ['{}_{}'.format('voxel', str(i)) for i in y.columns]
 
+
+    """average nifti computation"""
+    # covar_x = average_nifti(args)
+    # lc.to_csv(covar_x, os.path.join(cache_dir, 'X_df'))
+
+    tol = input_list["tol"]
+    eta = input_list["eta"]
+
+    # raise Exception(X, y, args, y_labels)
     computation_output_dict = {
         "output": {
-            "computation_phase": "local_0"
+            "computation_phase": "local_0",
+            "columns_to_normalize": columns_to_normalize,
+            "avg_nifti": "avg_nifti.nii",
+            "tol": tol,
+            "eta": eta
         },
         "cache": {
             "covariates": X.values.tolist(),
             "dependents": y.values.tolist(),
             "lambda": lamb,
             "y_labels": y_labels,
+            "X_labels": list(X.columns)
         },
     }
 
@@ -51,69 +84,37 @@ def local_1(args):
     X = args["cache"]["covariates"]
     y = args["cache"]["dependents"]
     lamb = args["cache"]["lambda"]
+    
     y_labels = args["cache"]["y_labels"]
+    X_labels = args['cache']['X_labels']
     y = pd.DataFrame(y, columns=y_labels)
 
-    biased_X = sm.add_constant(X)
-    meanY_vector, lenY_vector = [], []
+    input_list = args['input']
+    X = lc.normalize_columns(X, input_list["columns_to_normalize"])
+    log(f'\n\nNormalizing the following column values to their z-scores: {input_list["columns_to_normalize"]} \n ', args['state'])
 
-    local_params = []
-    local_sse = []
-    local_pvalues = []
-    local_tvalues = []
-    local_rsquared = []
+    meanY_vector, lenY_vector, local_stats_list, beta_vector = (
+        lc.gather_local_stats(X, y)
+    )
 
-    for column in y.columns:
-        curr_y = list(y[column])
-        meanY_vector.append(np.mean(curr_y))
-        lenY_vector.append(len(y))
+    augmented_X, augmented_X_labels = lc.add_site_covariates(args, X)
+    augmented_X_labels = ["const"] + X_labels + augmented_X_labels
 
-        # Printing local stats as well
-        model = sm.OLS(curr_y, biased_X.astype(float)).fit()
-        local_params.append(model.params)
-        local_sse.append(model.ssr)
-        local_pvalues.append(model.pvalues)
-        local_tvalues.append(model.tvalues)
-        local_rsquared.append(model.rsquared_adj)
-
-    keys = ["beta", "sse", "pval", "tval", "rsquared"]
-    local_stats_list = []
-    for index, _ in enumerate(y_labels):
-        values = [
-            local_params[index].tolist(), local_sse[index],
-            local_pvalues[index].tolist(), local_tvalues[index].tolist(),
-            local_rsquared[index]
-        ]
-        local_stats_dict = {key: value for key, value in zip(keys, values)}
-        local_stats_list.append(local_stats_dict)
-
-    # +++++++++++++++++++++ Adding site covariate columns +++++++++++++++++++++
-    site_covar_list = args["input"]["site_covar_list"]
-
-    site_matrix = np.zeros(
-        (np.array(X).shape[0], len(site_covar_list)), dtype=int)
-    site_df = pd.DataFrame(site_matrix, columns=site_covar_list)
-
-    select_cols = [
-        col for col in site_df.columns if args["state"]["clientId"] in col
-    ]
-
-    site_df[select_cols] = 1
-    biased_X = np.concatenate((biased_X, site_df.values), axis=1)
-    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    beta_vec_size = biased_X.shape[1]
+    beta_vec_size = augmented_X.shape[1]
 
     computation_output = {
         "output": {
             "beta_vec_size": beta_vec_size,
+            "beta_vector_local": beta_vector,
             "number_of_regressions": len(y_labels),
-            "computation_phase": "local_1"
+            "computation_phase": "local_1",
+            "augmented_X_labels": augmented_X_labels,
+            "X_labels": X_labels
         },
         "cache": {
             "beta_vec_size": beta_vec_size,
             "number_of_regressions": len(y_labels),
-            "covariates": biased_X.tolist(),
+            "covariates": augmented_X.tolist(),
             "dependents": y.values.tolist(),
             "lambda": lamb,
             "y_labels": y_labels,
@@ -122,7 +123,7 @@ def local_1(args):
             "local_stats_list": local_stats_list
         }
     }
-
+ 
     return json.dumps(computation_output)
 
 
@@ -144,6 +145,7 @@ def local_2(args):
     w = args["input"]["remote_beta"]
 
     gradient = np.zeros((number_of_regressions, beta_vec_size))
+    cost = np.zeros(number_of_regressions)
 
     for i in range(number_of_regressions):
         y_ = y[i]
@@ -151,6 +153,7 @@ def local_2(args):
         if not mask_flag[i]:
             gradient[i, :] = (
                 1 / len(X)) * np.dot(biased_X.T, np.dot(biased_X, w_) - y_)
+        cost[i] = lc.get_cost(y_actual=y[i], y_predicted=np.dot(biased_X, w_))
 
     computation_phase = {
         "cache": {
@@ -164,6 +167,7 @@ def local_2(args):
         },
         "output": {
             "local_grad": gradient.tolist(),
+            "local_cost": cost.tolist(),
             "computation_phase": "local_2"
         }
     }
@@ -242,7 +246,8 @@ def local_4(args):
     for index, column in enumerate(y.columns):
         curr_y = y[column].values
         SSE_local.append(
-            reg.sum_squared_error(biased_X, curr_y, avg_beta_vector))
+            sum_squared_error(curr_y, y_estimate(biased_X, avg_beta_vector)[index])
+        )
         SST_local.append(
             np.sum(
                 np.square(np.subtract(curr_y, mean_y_global[index])),
@@ -266,7 +271,7 @@ def local_4(args):
 if __name__ == '__main__':
 
     parsed_args = json.loads(sys.stdin.read())
-    phase_key = list(reg.listRecursive(parsed_args, 'computation_phase'))
+    phase_key = list(listRecursive(parsed_args, 'computation_phase'))
 
     if not phase_key:
         computation_output = local_0(parsed_args)
