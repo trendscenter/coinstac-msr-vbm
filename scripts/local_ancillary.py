@@ -86,3 +86,8 @@ def normalize_columns(data_df, cols):
     for col in cols:
         data_df[col] = (data_df[col] - data_df[col].mean())/(data_df[col].std())
     return data_df
+
+def to_csv(df, path):
+    b = pd.Series(df.dtypes, name='data_types')
+    df = df.append(b)
+    df.to_csv(path)

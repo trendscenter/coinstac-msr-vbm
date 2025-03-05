@@ -14,6 +14,7 @@ import pandas as pd
 import local_ancillary as lc
 from regression import listRecursive, sum_squared_error, y_estimate
 from utils import log
+from nipype_utils import average_nifti
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -47,11 +48,22 @@ def local_0(args):
     #    y.loc[:, 0:24])  # comment this line to demonstrate docker hanging
     y_labels = ['{}_{}'.format('voxel', str(i)) for i in y.columns]
 
+
+    """average nifti computation"""
+    # covar_x = average_nifti(args)
+    # lc.to_csv(covar_x, os.path.join(cache_dir, 'X_df'))
+
+    tol = input_list["tol"]
+    eta = input_list["eta"]
+
     # raise Exception(X, y, args, y_labels)
     computation_output_dict = {
         "output": {
             "computation_phase": "local_0",
             "columns_to_normalize": columns_to_normalize,
+            "avg_nifti": "avg_nifti.nii",
+            "tol": tol,
+            "eta": eta
         },
         "cache": {
             "covariates": X.values.tolist(),
@@ -85,7 +97,6 @@ def local_1(args):
         lc.gather_local_stats(X, y)
     )
 
-    log(f"\nlocal stats list: {str(local_stats_list)} ", args["state"])
     augmented_X, augmented_X_labels = lc.add_site_covariates(args, X)
     augmented_X_labels = ["const"] + X_labels + augmented_X_labels
 
